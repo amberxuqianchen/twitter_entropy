@@ -1,5 +1,6 @@
 # ignore data
 /data
+test_function.ipynb_checkpoints
 
 # ignore language model
 *.bin
