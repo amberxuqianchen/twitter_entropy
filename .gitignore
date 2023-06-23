@@ -1,6 +1,8 @@
 # ignore data
-/data
+
 test_function.ipynb
+us.csv
+jp.csv
 
 # ignore language model
 *.bin
