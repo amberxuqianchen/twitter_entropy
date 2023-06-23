@@ -3,7 +3,7 @@
 test_function.ipynb
 us.csv
 jp.csv
-
+*.txt
 # ignore language model
 *.bin
 *.bin.gz
