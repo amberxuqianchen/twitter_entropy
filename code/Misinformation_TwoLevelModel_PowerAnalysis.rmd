@@ -1,0 +1,152 @@
+---
+title: "Misinformation_PowerAnalysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# install.packages("simr", dependencies = TRUE, repos='http://cran.rstudio.com/')
+library(simr)
+
+set.seed(123)
+
+
+```
+
+```{r simulation}
+# source #1: Arend, M. G., & Schäfer, T. (20180927). Statistical power in two-level models: A tutorial based on Monte Carlo simulation. Psychological Methods, 24(1), 1. https://doi.org/10.1037/met0000195
+
+# source #2: https://humburg.github.io/Power-Analysis/simr_power_analysis.html
+
+#### Specification of Input Parameters ####
+### Specification of standardized input parameters ###
+# L1_DE_standardized <- .30 	## standardized L1 direct effect
+L1_DE_standardized <- .50 
+# L2_DE_standardized <- .30 	## standardized L2 direct effect
+L2_DE_standardized <- .50
+CLI_E_standardized = .50 	## standardized CLI (Cross-level interaction) effect
+rand.sl = .09 			## standardized random slope variance component
+ICC <- .30 			## standardized intraclass correlation coefficient
+cor.i.sl = .00 		## Correlation between random slope and random intercept
+# alpha.S <- .05 		## significance level
+alpha.S <- .05
+# Size.clus <- 20 		## L1 sample size (cluster size)
+# N.clus <- 40 			## L2 sample size (number of clusters)
+Size.clus <- 12
+N.clus <- 17
+### Derivation of a population model for the power analysis ###
+## Specification of predictor variables ##
+x <- scale(rep(1:Size.clus))
+g <- as.factor(1:N.clus)
+X <- cbind(expand.grid("x"=x, "g"=g))
+X <- data.frame(X, Z=as.numeric(X$g))
+X$Z <- scale(X$Z)
+
+## Specification of the outcome variable ##
+varL1 <- 1 						## uncond. L1 variance (fixed at 1)
+s <- sqrt((varL1)*(1-(L1_DE_standardized^2)))	## cond. L1 variance (Equation 11)
+varL2 <- ICC/(1-ICC) 					## uncond. L2 variance (Equation 10)
+V1 <- varL2*(1-(L2_DE_standardized^2)) 		## cond. L2 variance (Equation 11)
+
+## Adjustment of the random slope variance ##
+varRS <- rand.sl*varL1				## uncond. random slope variance (Equation 13)
+condRS <- varRS*(1-(CLI_E_standardized^2))	## cond. Random slope variance (Equation 11)
+
+## Covariance of random intercept and slope (Equation 14) ##
+cov.i.sl <- cor.i.sl*sqrt(varL2)*sqrt(varRS)
+
+## Adjustment of fixed effects (Equation 15) ##
+L1_DE <- L1_DE_standardized*sqrt(varL1)
+L2_DE <- L2_DE_standardized*sqrt(varL2)
+CLI_E <- CLI_E_standardized*sqrt(varRS)
+
+#### Implementation of a Power Analysis in a Two-Level Model in SIMR ####
+### Vector of fixed effects ###
+b <- c(0, L1_DE, L2_DE, CLI_E)
+rand_sl.con <- varRS*(1-(CLI_E_standardized^2))
+### Random intercept/slope variance-covariance matrix ###
+V2 <- matrix(c(V1, cov.i.sl, cov.i.sl, rand_sl.con), 2)
+
+### Setting up the population model ###
+model <- makeLmer(y ~ x + Z + x:Z + (x|g), 
+                  fixef=b, VarCorr=V2, 
+                  sigma=s, data=X)
+print(model)
+
+### Simulating power for the L1 direct effect ###
+sim.ef <- powerSim(model,
+                   fixed("x","kr"),
+                   alpha=alpha.S,
+                   nsim=1000)
+print(sim.ef)
+simdat_Table2 <- cbind(effect="x",
+                       Size.clus, 
+                       N.clus, 
+                       L1_DE_standardized, 
+                       L2_DE_standardized, 
+                       CLI_E_standardized, 
+                       summary(sim.ef))
+
+### Simulating power for the L2 direct effect ###
+sim.ef <- powerSim(model,
+                   fixed("Z","kr"),
+                   alpha=alpha.S,
+                   nsim=1000)
+print(sim.ef)
+simdat_Table2 <- rbind(simdat_Table2, 
+                       cbind(effect="Z",
+                             Size.clus, 
+                             N.clus, 
+                             L1_DE_standardized, 
+                             L2_DE_standardized, 
+                             CLI_E_standardized, 
+                             summary(sim.ef)))
+
+### Simulating power for the CLI effect ###
+sim.ef <- powerSim(model,
+                   fixed("x:Z","kr"),
+                   alpha=alpha.S,
+                   nsim=1000)
+print(sim.ef)
+
+### Power of all effects is stored in the data frame simdat_Table2 ###
+simdat_Table2 <- rbind(simdat_Table2, 
+                       cbind(effect="x:Z",
+                             Size.clus, 
+                             N.clus, 
+                             L1_DE_standardized, 
+                             L2_DE_standardized, 
+                             CLI_E_standardized, 
+                             summary(sim.ef)))
+simdat_Table2
+```
+
+
+
+```{r plot}
+# source: https://rpubs.com/mhanauer/286732
+
+# data("simdata")
+# head(simdata)
+# model = glmer(z~x + (1 + x |g), family = "poisson", data = X)
+
+# fixef(model)["x"] = .5
+# 
+# set.seed(123)
+# powerCurve(model , along = "g", nsim =  100)
+
+model13 = extend(model, along = "g", n = 20)
+set.seed(123)
+p_curve_treat <- powerCurve(model13, nsim = 1000, along = "g")
+plot(p_curve_treat)
+```
+
+
+```{Factorial ANOVA , echo=FALSE}
+# source: https://cran.r-project.org/web/packages/easypower/vignettes/User_Input.html
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
